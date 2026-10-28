@@ -1,106 +1,130 @@
-var theCount;
-var alarm = document.getElementById("alarm");
-var alarm2 = document.getElementById("alarm2");
-var panel = document.getElementById("panel");
-var turnOff = document.getElementById("turn-off");
-var turnOffHor = document.getElementById("closing");
-var detonate = document.getElementById("detonate");
-alarm.volume = 0.50;
+const TIEMPO_INICIAL = 9;
 
-var time = document.getElementById("time");
+const alarm = document.getElementById("alarm");
+const alarm2 = document.getElementById("alarm2");
+const panel = document.getElementById("panel");
+const explosion = document.getElementById("explosion");
+const scene = document.querySelector(".scene");
+const closing = document.getElementById("closing");
+const time = document.getElementById("time");
+const abort = document.getElementById("abort");
+const detonate = document.getElementById("detonate");
+const cover = document.getElementById("cover");
+const btn = document.getElementById("activate");
+const reload = document.getElementById("restart");
+const mute = document.getElementById("mute");
+
+let theCount = null;
+let finExplosion = null;
+let segundos = TIEMPO_INICIAL;
+alarm.volume = 0.5;
+
+// Muestra el tiempo con formato 00:09
+function mostrarTiempo() {
+    time.innerText = "00:" + String(segundos).padStart(2, "0");
+}
 
 function showCountDown() {
-    time.innerText = time.innerText - 1;
-    if (time.innerText == 0) {
+    segundos--;
+    mostrarTiempo();
+    if (segundos === 0) {
         clearInterval(theCount);
         time.classList.add("crono");
         abort.classList.add("hide");
         detonate.classList.add("show");
-        setTimeout(function () {
-            turnOff.classList.add("close");
-            turnOffHor.classList.add("close");
-            reload.classList.add("show");
-            alarm.pause();
-            alarm2.play();
-        }, 1500);
+        setTimeout(explotar, 1500);
     }
 }
 
-var cover = document.getElementById("activate");
-cover.addEventListener("click", function () {
-    this.classList.add("pushed");
-    alarm.load();
-    alarm.currentTime = 10.1;
-    alarm.play();
-    setTimeout(function () {
-        panel.classList.add("show");
-        theCount = setInterval(showCountDown, 1000);
-        alarm.load();
-        alarm.play();
-    }, 500);
-});
+// Crea chispas que salen volando en direcciones al azar
+function crearChispas(cantidad) {
+    for (let i = 0; i < cantidad; i++) {
+        const chispa = document.createElement("span");
+        const angulo = Math.random() * Math.PI * 2;
+        const distancia = 25 + Math.random() * 45; // en vmin
+        chispa.className = "spark";
+        chispa.style.setProperty("--x", Math.cos(angulo) * distancia + "vmin");
+        chispa.style.setProperty("--y", Math.sin(angulo) * distancia + "vmin");
+        chispa.style.setProperty("--dur", 0.8 + Math.random() * 1.2 + "s");
+        explosion.appendChild(chispa);
+    }
+}
 
-var cover = document.getElementById("cover");
-cover.addEventListener("click", function () {
-    if (this.className === "box") this.classList.add("opened");
-    else this.classList.remove("opened");
-});
+function mostrarReinicio() {
+    clearTimeout(finExplosion);
+    reload.classList.add("show");
+}
 
-var btn = document.getElementById("activate");
-btn.addEventListener("click", function () {
-    this.classList.add("pushed");
-    alarm.onload();
-    alarm.currentTime = 10.1;
-    alarm.play();
-    setTimeout(function () {
-        panel.classList.add("show");
-        theCount = setInterval(showCountDown, 1000);
-        alarm.load();
-        alarm.play();
-    }, 500);
-});
-
-var abort = document.getElementById("abort");
-abort.addEventListener("click", function () {
-    btn.classList.remove("pushed");
+function explotar() {
     panel.classList.remove("show");
-    clearInterval(theCount);
-    time.innerText = 9;
     alarm.pause();
-    alarm.currentTime = 10;
-    detonate.classList.remove("show");
-    cover.classList.remove("opened");
-    abort.classList.remove("hide");
-    this.classList.remove("show");
-});
+    alarm2.currentTime = 0;
+    alarm2.play();
 
-var reload = document.getElementById("restart");
-reload.addEventListener("click", function () {
+    crearChispas(40);
+    explosion.classList.add("boom");
+    scene.classList.add("shake", "destroyed");
+    closing.classList.add("close");
+
+    // La flecha aparece cuando termina el sonido (o a los 8.5 s si está muteado)
+    alarm2.onended = mostrarReinicio;
+    finExplosion = setTimeout(mostrarReinicio, 8500);
+}
+
+// Vuelve todo al estado inicial
+function reiniciar() {
+    clearInterval(theCount);
+    segundos = TIEMPO_INICIAL;
+    mostrarTiempo();
+    clearTimeout(finExplosion);
+    alarm.pause();
+    alarm.currentTime = 0;
+    alarm2.pause();
+    alarm2.onended = null;
     panel.classList.remove("show");
-    turnOff.classList.remove("close");
-    turnOffHor.classList.remove("close");
+    explosion.classList.remove("boom");
+    explosion.querySelectorAll(".spark").forEach(function (chispa) {
+        chispa.remove();
+    });
+    scene.classList.remove("shake", "destroyed");
+    closing.classList.remove("close");
+    reload.classList.remove("show");
     abort.classList.remove("hide");
     detonate.classList.remove("show");
+    time.classList.remove("crono");
     cover.classList.remove("opened");
     btn.classList.remove("pushed");
-    this.classList.remove("show");
-    time.classList.remove("crono");
-    time.innerText = 9;
+}
+
+// Abrir / cerrar la cubierta de cristal
+cover.addEventListener("click", function () {
+    cover.classList.toggle("opened");
 });
 
+// Presionar el botón rojo
+btn.addEventListener("click", function () {
+    if (btn.classList.contains("pushed")) return;
+    btn.classList.add("pushed");
+    alarm.currentTime = 0;
+    alarm.play();
+    setTimeout(function () {
+        panel.classList.add("show");
+        theCount = setInterval(showCountDown, 1000);
+    }, 500);
+});
+
+abort.addEventListener("click", reiniciar);
+reload.addEventListener("click", reiniciar);
+
+mute.addEventListener("click", function () {
+    const silenciado = mute.classList.toggle("muted");
+    alarm.muted = silenciado;
+    alarm2.muted = silenciado;
+});
+
+mostrarTiempo();
+
+// La cubierta arranca abierta y se cierra con animación al cargar
 setTimeout(function () {
     cover.classList.remove("opened");
 }, 100);
-
-var mute = document.getElementById("mute");
-mute.addEventListener("click", function () {
-    if (this.className === "muted") {
-        alarm.muted = false;
-        alarm2.muted = false;
-        this.classList.remove("muted");
-    } else {
-        alarm.muted = true;
-        alarm2.muted = true;
-        this.classList.add("muted");
-    }
-});
